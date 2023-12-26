@@ -1,0 +1,22 @@
+FROM php:8.2-fpm
+ARG user
+ARG uid
+
+ENV DEPENDENSIES="libpq-dev libzip-dev libxml2-dev libxslt-dev libonig-dev"
+ENV EXTENSIONS="pdo_pgsql zip xml xsl soap pgsql mbstring bcmath intl opcache sockets"
+
+RUN apt-get update && apt-get install -y ${DEPENDENSIES} && \ # Установка расширений php и зависимостей к ним
+    docker-php-ext-install ${EXTENSIONS}
+
+COPY --from=composer/composer:2.6.6-bin /composer /usr/bin/composer
+COPY ./php-fpm.conf /usr/local/etc/php-fpm.d/ # Я не очень понимаю этот конфиг. Возможно он должен лежать в /usr/local/etc/php-fpm.conf
+COPY ./laravel-app . # Предполагается что в ./laravel-app находится наше приложение
+
+RUN useradd -G www-data,root -u $uid -d /home/$user $user && \ # Добавление пользователя и установка зависимостей через composer
+    mkdir -p /home/$user/.composer && \
+    chown -R $user:$user /home/$user && \
+    composer install --no-dev
+
+WORKDIR /var/www/
+
+USER $user
